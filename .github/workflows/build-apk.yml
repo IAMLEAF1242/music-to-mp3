@@ -19,8 +19,19 @@ jobs:
       - name: Install system packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf automake libtool \
+          sudo apt-get install -y git zip unzip autoconf automake libtool \
             pkg-config zlib1g-dev libncurses-dev cmake libffi-dev libssl-dev build-essential ccache
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Check Java version
+        run: |
+          java -version
+          echo "JAVA_HOME=$JAVA_HOME"
 
       - name: Install buildozer
         run: pip install buildozer cython
@@ -34,7 +45,23 @@ jobs:
           key: buildozer-${{ hashFiles('buildozer.spec') }}
 
       - name: Build APK
-        run: buildozer -v android debug
+        shell: bash
+        run: buildozer android debug 2>&1 | tee build.log
+
+      - name: Show the end of the log
+        if: failure()
+        run: |
+          echo "=== last 80 lines ==="
+          tail -n 80 build.log | cut -c1-300
+          echo "=== lines mentioning errors ==="
+          grep -n -i -E "error:|fatal|traceback|failed|no such file|not found" build.log | grep -v -i "wno-error" | tail -n 30 | cut -c1-300
+
+      - name: Save full log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

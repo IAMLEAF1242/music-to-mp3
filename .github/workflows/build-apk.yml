@@ -1,0 +1,44 @@
+name: Build APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf automake libtool \
+            pkg-config zlib1g-dev libncurses-dev cmake libffi-dev libssl-dev build-essential ccache
+
+      - name: Install buildozer
+        run: pip install buildozer cython
+
+      - name: Cache Android SDK/NDK downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.buildozer
+            .buildozer
+          key: buildozer-${{ hashFiles('buildozer.spec') }}
+
+      - name: Build APK
+        run: buildozer -v android debug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: music-to-mp3-apk
+          path: bin/*.apk
+          if-no-files-found: error
